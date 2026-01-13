@@ -10,10 +10,12 @@ import { Liquidity } from './components/Liquidity'
 function App() {
   const [account, setAccount] = useState<string | null>(null)
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null)
+  const [canSendTx, setCanSendTx] = useState<boolean>(false)
 
-  const handleConnect = (connectedAccount: string, connectedProvider: ethers.BrowserProvider) => {
+  const handleConnect = (connectedAccount: string, connectedProvider: ethers.BrowserProvider, _canSendTx: boolean) => {
     setAccount(connectedAccount)
     setProvider(connectedProvider)
+    setCanSendTx(_canSendTx)
   }
 
   return (
@@ -32,8 +34,11 @@ function App() {
       <main>
         {account && provider && (
           <div className="dashboard">
-            <Swap provider={provider} account={account} />
-            <Liquidity provider={provider} account={account} />
+            {!canSendTx && (
+              <div className="warning-banner">⚠️ Connected wallet cannot send transactions; please use MetaMask or another EVM wallet</div>
+            )}
+            <Swap provider={provider} account={account} canSendTx={canSendTx} />
+            <Liquidity provider={provider} account={account} canSendTx={canSendTx} />
           </div>
         )}
         {!account && (

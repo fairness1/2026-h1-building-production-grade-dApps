@@ -1,56 +1,186 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
-import { MiniSwap_ADDRESS, MiniSwap_ABI, ERC20_ABI } from '../constants';
+import { MiniSwap_ADDRESS, MiniSwap_ABI, ERC20_ABI, RPC } from '../constants';
 
 interface LiquidityProps {
     provider: ethers.BrowserProvider;
     account: string;
+    canSendTx?: boolean;
 }
 
-export const Liquidity = ({ provider, account }: LiquidityProps) => {
+export const Liquidity = ({ provider, account, canSendTx = false }: LiquidityProps) => {
     const [mode, setMode] = useState<'add' | 'remove'>('add');
-    const [tokenA, setTokenA] = useState('');
-    const [tokenB, setTokenB] = useState('');
+    // Pre-fill with deployed test tokens
+    const [tokenA, setTokenA] = useState('0x5a8d68E16f0373238016baE06617a2A12C48015f');
+    const [tokenB, setTokenB] = useState('0x40be9502BE89d15897453699BA8264762B28FF9a');
     const [amount, setAmount] = useState('');
     const [status, setStatus] = useState('');
 
+    const withTimeout = async <T,>(p: Promise<T>, ms = 15000): Promise<T> => {
+        return await Promise.race([
+            p,
+            new Promise<T>((_, reject) => setTimeout(() => reject(new Error('RPC call timed out')), ms)),
+        ] as any);
+    };
+
     const handleAddLiquidity = async () => {
-        setStatus('Adding Liquidity...');
+        setStatus('Preparing to add liquidity...');
+        console.log('handleAddLiquidity start', { tokenA, tokenB, amount, account });
         try {
-            const signer = await provider.getSigner();
+            // Quick check for transaction capability
+            if (!canSendTx) {
+                setStatus('Connected wallet cannot send transactions; please use MetaMask or another EVM wallet');
+                return;
+            }
+
+            // Basic validation
+            if (!tokenA || !tokenB) {
+                setStatus('Failed: token addresses required');
+                return;
+            }
+            let amountWei: bigint;
+            try {
+                amountWei = ethers.parseEther(amount || '0');
+            } catch (e) {
+                setStatus('Failed: invalid amount');
+                return;
+            }
+            if (amountWei === 0n) {
+                setStatus('Failed: amount must be > 0');
+                return;
+            }
+
+            setStatus('Getting signer...');
+
+            // Ensure provider has the account available via eth_accounts
+            let rpcAccounts: string[] = [];
+            try {
+                rpcAccounts = await withTimeout(provider.send('eth_accounts', []), 5000) as string[];
+                console.log('rpcAccounts', rpcAccounts);
+            } catch (e: any) {
+                console.warn('eth_accounts failed or timed out', e);
+            }
+
+            if (!rpcAccounts || rpcAccounts.length === 0) {
+                setStatus('No accounts available from provider; please reconnect wallet');
+                return;
+            }
+
+            // Normalize and compare addresses to avoid casing mismatches
+            try {
+                const rpcAddr = ethers.getAddress(rpcAccounts[0]);
+                const uiAddr = ethers.getAddress(account);
+                if (rpcAddr.toLowerCase() !== uiAddr.toLowerCase()) {
+                    console.warn('Account mismatch between UI and provider', { rpcAddr, uiAddr });
+                    setStatus('Account mismatch between UI and wallet; please reconnect');
+                    return;
+                }
+            } catch (e) {
+                console.warn('Failed to normalize addresses', e);
+            }
+
+            // Use a signer bound to the explicit account to avoid provider permission race
+            let signer = await provider.getSigner(rpcAccounts[0]);
+            console.log('got signer', rpcAccounts[0]);
+
+            // If signer cannot send txs, try to find MetaMask injected provider and create signer from it
+            const signerSupportsSend = typeof (signer as any).sendTransaction === 'function';
+            if (!signerSupportsSend) {
+                console.warn('Current signer does not support sendTransaction, looking for MetaMask');
+                const ethAny = (window as any).ethereum;
+                let metaEth = undefined;
+                if (ethAny?.isMetaMask) metaEth = ethAny;
+                if (ethAny?.providers && Array.isArray(ethAny.providers)) {
+                    metaEth = ethAny.providers.find((p: any) => p.isMetaMask) || metaEth;
+                }
+                if (metaEth) {
+                    const mmProvider = new ethers.BrowserProvider(metaEth);
+                    try {
+                        signer = await mmProvider.getSigner(rpcAccounts[0]);
+                        if (typeof (signer as any).sendTransaction === 'function') {
+                            console.log('Switched to MetaMask signer');
+                        } else {
+                            console.warn('MetaMask signer still does not support sendTransaction');
+                        }
+                    } catch (e) {
+                        console.warn('Failed to get signer from MetaMask provider', e);
+                    }
+                }
+            }
+
+            setStatus('Connecting to contracts...');
             const MiniSwap = new ethers.Contract(MiniSwap_ADDRESS, MiniSwap_ABI, signer);
-            const tokenAContract = new ethers.Contract(tokenA, ERC20_ABI, signer);
-            const tokenBContract = new ethers.Contract(tokenB, ERC20_ABI, signer);
+            // Use a JsonRpcProvider (network RPC) for reliable read operations
+            const readProvider = new ethers.JsonRpcProvider(RPC);
+            const tokenARead = new ethers.Contract(tokenA, ERC20_ABI, readProvider as any);
+            const tokenBRead = new ethers.Contract(tokenB, ERC20_ABI, readProvider as any);
+            // Use signer-bound contracts for write operations (ensure runner supports sending txs)
+            const tokenAContract = new ethers.Contract(tokenA, ERC20_ABI, signer as any);
+            const tokenBContract = new ethers.Contract(tokenB, ERC20_ABI, signer as any);
+            console.log('contracts initialized (read via RPC, write via signer)');
 
-            const amountWei = ethers.parseEther(amount);
+            // Check allowances and request approvals if necessary
+            setStatus('Checking allowances...');
+            let allowanceA: bigint = 0n;
+            try {
+                allowanceA = await withTimeout(tokenARead.allowance(account, MiniSwap_ADDRESS));
+                console.log('allowanceA', allowanceA.toString());
+            } catch (e: any) {
+                throw new Error(`Failed to read allowance for token A: ${e?.message || e}`);
+            }
 
-            // Approve Token A
-            const allowanceA = await tokenAContract.allowance(account, MiniSwap_ADDRESS);
             if (allowanceA < amountWei) {
                 setStatus('Approving Token A...');
                 const txA = await tokenAContract.approve(MiniSwap_ADDRESS, amountWei);
-                await txA.wait();
+                console.log('approveA tx', txA.hash);
+                setStatus(`Sent approve for Token A: ${txA.hash}. Waiting for confirm...`);
+                await withTimeout(txA.wait(), 120000);
+                setStatus('Token A approved');
             }
 
-            // Approve Token B
-            const allowanceB = await tokenBContract.allowance(account, MiniSwap_ADDRESS);
+            let allowanceB: bigint = 0n;
+            try {
+                allowanceB = await withTimeout(tokenBRead.allowance(account, MiniSwap_ADDRESS));
+                console.log('allowanceB', allowanceB.toString());
+            } catch (e: any) {
+                throw new Error(`Failed to read allowance for token B: ${e?.message || e}`);
+            }
+
             if (allowanceB < amountWei) {
                 setStatus('Approving Token B...');
+                // Ensure signer supports sending txs
+                if (typeof (tokenBContract as any).approve !== 'function' || typeof (signer as any).sendTransaction !== 'function') {
+                    throw new Error('Connected wallet cannot send transactions; please use MetaMask or another EVM wallet');
+                }
                 const txB = await tokenBContract.approve(MiniSwap_ADDRESS, amountWei);
-                await txB.wait();
+                console.log('approveB tx', txB.hash);
+                setStatus(`Sent approve for Token B: ${txB.hash}. Waiting for confirm...`);
+                await withTimeout(txB.wait(), 120000);
+                setStatus('Token B approved');
             }
 
             setStatus('Submitting Add Liquidity transaction...');
-            const tx = await MiniSwap.addLiquidity(
-                tokenA,
-                tokenB,
-                amountWei,
-            );
-            await tx.wait();
-            setStatus('Liquidity Added!');
+            if (typeof (MiniSwap as any).addLiquidity !== 'function' || typeof (signer as any).sendTransaction !== 'function') {
+                throw new Error('Connected wallet cannot send transactions; please use MetaMask or another EVM wallet');
+            }
+            const tx = await MiniSwap.addLiquidity(tokenA, tokenB, amountWei);
+            console.log('addLiquidity tx', tx.hash);
+            setStatus(`Tx submitted: ${tx.hash}. Waiting for confirmation...`);
+            const receipt = await withTimeout(tx.wait(), 180000);
+            console.log('addLiquidity receipt', receipt);
+            if (receipt && (receipt as any).status === 1) {
+                setStatus('Liquidity Added!');
+            } else {
+                setStatus('Transaction failed or reverted');
+            }
         } catch (err: any) {
             console.error(err);
-            setStatus(`Failed: ${err.message}`);
+            // Better user-facing error messages for common cases
+            if (err?.message?.includes('User denied')) {
+                setStatus('Failed: transaction rejected by user');
+            } else {
+                setStatus(`Failed: ${err?.message || String(err)}`);
+            }
         }
     };
 

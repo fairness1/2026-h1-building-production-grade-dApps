@@ -1,4 +1,11 @@
-export const MiniSwap_ADDRESS = "0x3DAFAe4d0C4909Fc8551442FB4320102289CB505";
+import MiniSwapArtifact from '../../artifacts/contracts/miniSwap.sol/MiniSwap.json';
+
+export const MiniSwap_ADDRESS = "0x5F24d972B91B9a093276921Cd26b0C2b3Aeb5bBc";
+
+// Network / RPC configuration for PassetHub testnet
+export const RPC = 'https://testnet-passet-hub-eth-rpc.polkadot.io';
+export const CHAIN_ID = 420420422;
+export const CHAIN_ID_HEX = '0x190f1b46';
 export const ERC20_ABI = [
     {
         "constant": true,
@@ -121,74 +128,4 @@ export const ERC20_ABI = [
     }
 ]
 
-export const MiniSwap_ABI = [
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "tokenA",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "tokenB",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "addLiquidity",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "tokenA",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "tokenB",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "removeLiquidity",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "tokenIn",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "tokenOut",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "swap",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
-]
+export const MiniSwap_ABI = (MiniSwapArtifact as any).abi;
