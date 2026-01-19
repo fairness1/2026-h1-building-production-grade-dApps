@@ -1,0 +1,36 @@
+console.log("Transaction confirmed!");
+await tx.wait();
+console.log("Transaction hash:", tx.hash);
+});
+  value: ethers.parseEther("0.001")
+  to: "0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac",
+const tx = await signer.sendTransaction({
+// ���Է���һ�ʼ�ת��
+console.log("Balance:", ethers.formatEther(balance));
+const balance = await signer.provider.getBalance(signer.address);
+// ��ѯ���
+console.log("Address:", signer.address);
+const [signer] = await ethers.getSigners();
+// ��ȡ signer
+exit
+console.log("TokenA deployed to:", await tokenA.getAddress());
+await tokenA.waitForDeployment();
+const tokenA = await MockERC20.deploy("Token A", "TKA");
+const MockERC20 = await ethers.getContractFactory("MockERC20", signer);
+const tokenA = await MockERC20.deploy("Token A", "TK
+const MockERC20 = await ethers.getContractFactory("MockERC20", signer);
+const signer = wallet.connect(provider);
+console.log("Balance:", ethers.formatEther(balance), "ETH");
+const balance = await provider.getBalance(wallet.address);
+const provider = ethers.provider;
+console.log("Your address:", wallet.address);
+const wallet = ethers.Wallet.fromPhrase("bottom drive obey lake curtain smoke basket hold race lonely fit walk");
+const tokenA = await MockERC20.deploy("Token A", "TKA");
+const MockERC20 = await ethers.getContractFactory("MockERC20", signerWithProvider);
+const signerWithProvider = wallet.connect(provider);
+console.log("Your address:", wallet.address);
+console.log("Balance:", ethers.formatEther(balance), "ETH");
+const balance = await provider.getBalance(wallet.address);
+const provider = ethers.provider;
+const wallet = ethers.Wallet.fromPhrase("bottom drive obey lake curtain smoke basket hold race lonely fit walk");
+help

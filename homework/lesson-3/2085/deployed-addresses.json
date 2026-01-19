@@ -1,0 +1,10 @@
+{
+  "network": "paseo",
+  "networkName": "Polkadot Paseo Testnet",
+  "chainId": 420420421,
+  "rpcUrl": "https://testnet-passet-hub-eth-rpc.polkadot.io",
+  "tokenA": "0x3bEEbBe939bEB221bdC7A8baA81fEa69295043A8",
+  "tokenB": "0x298FA4226C8880fAccACB844dc4bc83483969D21",
+  "miniSwap": "0x4544F33f362C55E15F13fbc92312b635c8693Db6",
+  "deployedAt": "2026-01-18"
+}
