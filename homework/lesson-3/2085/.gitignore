@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Hardhat files
+cache/
+artifacts/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
